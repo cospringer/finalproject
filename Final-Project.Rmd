@@ -1,0 +1,406 @@
+---
+title: "Final Project"
+output: html_document
+date: "2024-05-08"
+---
+
+```{r}
+
+library(ggtree)
+library(tidyverse)
+library(knitr)
+library(ggtree)
+library(ggimage)
+library(rphylopic)
+library(treeio)
+library(tidytree)
+library(ape)
+library(TreeTools)
+library(phytools)
+library(stringr)
+library(ggnewscale)
+library(ggtreeExtra)
+library(ggstar)
+```
+
+```{r, eval=FALSE}
+library(usethis) 
+use_git_config(user.name = "cospringer", user.email = "cospringer@umass.edu")
+gitcreds::gitcreds_set()
+```
+
+# Abstract:
+
+# Motivating Reasons:
+
+## The need to develop a solid body of scientific information to support the restoration, preservation, and management of range lands in the dry Southwest was the focus of research on SRER and other experimental ranges. The measurements may be used to estimate soil organic matter stocks, comprehend ecosystem nutrient status, clarify rates of microbially-mediated activities, and investigate the relationship between soil biogeochemical dynamics and variations in microbial biomass and community composition across time and geography. Moreover, soil pH and gravimetric water content—two environmental constraints on microorganisms and biogeochemical processes—are characterized by NEON.
+
+# Introduction and Background
+
+![Landscape of Santa Rita Experimental Range](images/SRERR.jpeg)
+
+## History of Santa Rita Experimental Range:
+
+### Sayre (2003) identified four distinct research focus periods spanning the first half of the twenty-first
+century. Institutional Consolidation, Revegetation, and Carrying Capacity, 1901–1931; with a focus on estimating forage production to determine livestock carrying capacity estimates and reestablishing forage plants after periods of heavy animal grazing pressure that occurred prior to 1900. Growth and the Shrub Problem, published in 1932–1945, focused mostly on recording increases in shrub species such as velvet mesquite and burroweed, as well as decreases in the quantity of fodder grass. Age of Mesquite, 1946–1965; focused on velvet mesquite life cycle, control techniques, and ecological reactions to mesquite reduction. Ecology of the Santa Rita Grazing System, 1966–1988; research exploring the effects of grazing systems (seasonal rotations and rest) on vegetation; with a focus on fundamental ecosystem and species biology and ecology.
+
+![Researchers at Study Area 130](images/SRERneon.jpeg)
+
+## Focus of this Project: Microbial Composition
+
+### Archaea are prokaryotic microorganisms belonging to a distinct branch of life separate from Bacteria and Eukarya. They were identified as a cohesive group in 1977 through comparisons of small ribosomal RNA (rRNA) sequences. Archaea have been found in various environments using molecular techniques, with many thriving in extreme conditions like high salinity, acidity, alkalinity, heat, cold, or anaerobic environments. While some Archaea have been found in the gastrointestinal tract of mammals, none have been identified as causing diseases. They exhibit diverse metabolic capabilities, including chemoautotrophy, heterotrophy, and phototrophy. The Santa Rita Experimental Range (SRER), in D14 (Desert Southwest), is located in the foothills of the Santa Rita Mountains, south of Tucson, Arizona. It is the oldest continuously operating range land research facility in the United States. It was managed by the USDA from 1903 until 1988, when control was handed over to the University of Arizona. It is now used by the University of Arizona College of Agriculture and Life Sciences and the School of Natural Resources as an experimental laboratory to study desert ecology, climate change, hydro logic processes, range management, and wildfire.
+
+![Archaea Lineage](images/Archaealineage.png) ![Archaea](images/Archaeclose.jpeg) ![Archaea Structure](images/Archaea.jpeg)
+
+# Methods
+
+### Three soil cores (to maximum 30 cm depth) are collected at pre-determined locations within select Distributed Base Plots (n = 6) and Tower Base Plots (n = 4) at SRER. Soil microbes, pH, and moisture are measured during all soil sampling bouts, while biogeochemical measurements, microbial biomass, and N-transformation rates are measured once every 5 years Soil samples at SRER are collected during the transition from dry season to wet season, during summer peak biomass, and during the transition from wet season to dry season.
+
+
+# Results
+
+```{r}
+NEON_MAGs <- read_csv("data/NEON/GOLD_Study_ID_Gs0161344_NEON_2024_4_21.csv")
+  # remove columns that are not needed for data analysis
+```
+
+```{r}
+NEON_MAGs %>%
+select(-c(`GOLD Study ID`, `Bin Methods`, `Created By`, `Date Added`)) %>% 
+  # create a new column with the Assembly Type
+  mutate("Assembly Type" = case_when(`Genome Name` == "NEON combined assembly" ~ `Genome Name`,
+                            TRUE ~ "Individual")) %>% 
+  mutate_at("Assembly Type", str_replace, "NEON combined assembly", "Combined") %>% 
+  separate(`GTDB-Tk Taxonomy Lineage`, c("Domain", "Phylum", "Class", "Order", "Family", "Genus"), "; ", remove = FALSE) %>% 
+  # Get rid of the the common string "Soil microbial communities from "
+  mutate_at("Genome Name", str_replace, "Terrestrial soil microbial communities from ", "") %>% 
+  # Use the first `-` to split the column in two
+  separate(`Genome Name`, c("Site","Sample Name"), " - ") %>% 
+  # Get rid of the the common string "S-comp-1"
+  mutate_at("Sample Name", str_replace, "-comp-1", "") %>%
+  # separate the Sample Name into Site ID and plot info
+  separate(`Sample Name`, c("Site ID","subplot.layer.date"), "_", remove = FALSE,) %>% 
+  # separate the plot info into 3 columns
+  separate(`subplot.layer.date`, c("Subplot", "Layer", "Date"), "-") 
+
+```
+
+#Figure 1.
+
+```{r}
+NEON_MAGs %>%
+  ggplot(aes(x = `Bin Quality`, y = `Bin Completeness`, color = 'Red')) +
+  geom_point() +
+  labs(x = "Bin Quality", y = "Bin Completeness", title = "Bin Quality Vs. Bin Completeness")
+```
+
+#Figure 2.
+
+```{r}
+NEON_MAGs %>%
+  ggplot(aes(x = `Total Number of Bases`, y = `Bin Completeness`)) +
+  geom_point() +
+  labs(x = "Total Number of Bases", y = "Bin Completeness", title = "Total Number of Bases Vs. Bin Completeness")
+
+```
+
+#Figure 3.
+
+```{r}
+tree_arc <- read.tree("data/NEON/gtdbtk.ar53.decorated.tree")
+tree_bac <- read.tree("data/NEON/gtdbtk.bac120.decorated.tree")
+```
+
+```{r}
+ggtree(tree_arc, layout="circular")  %<+%
+  NEON_MAGs + 
+  geom_point2(mapping=aes(color=`Bin Completeness`, size=`Total Number of Bases`))
+
+```
+
+#Figure 4.
+
+```{r}
+NEON_metagenomes <- read_tsv("data/NEON/exported_img_data_Gs0161344_NEON.tsv") %>% 
+  select(-c(`Domain`, `Sequencing Status`, `Sequencing Center`)) %>% 
+  rename(`Genome Name` = `Genome Name / Sample Name`) %>% 
+  filter(str_detect(`Genome Name`, 're-annotation', negate = T)) %>% 
+  filter(str_detect(`Genome Name`, 'WREF plot', negate = T))
+```
+
+```{r}
+tree_bac_preorder <- Preorder(tree_bac)
+tree_Archaea <- Subtree(tree_bac_preorder, 1712)
+```
+
+```{r}
+ggtree(tree_Archaea) +
+  geom_tiplab(size=2) +
+  xlim(0,20)
+```
+
+#Figure 5.
+
+```{r}
+ggtree(tree_Archaea, layout="circular") + 
+  geom_tiplab(aes(angle=angle))+
+    theme_tree() +
+    xlim(0,20)
+```
+
+#Figure 6.
+
+```{r}
+ggtree(tree_bac, layout="circular", branch.length="none") +
+    geom_hilight(node=1712, fill="steelblue", alpha=.6) +
+    geom_cladelab(node=1712, label="Archaea", align=TRUE,  
+                  offset = 0, textcolor='steelblue', barcolor='steelblue')
+```
+
+#Figure 7.
+
+```{r}
+ggtree(tree_Archaea, layout="circular")  %<+%
+  NEON_MAGs + 
+  geom_tiplab(size=2, hjust=-.1) +
+  xlim(0,20) 
+```
+
+#Figure 8.
+
+```{r}
+ggtree(tree_Archaea) %<+%
+  NEON_MAGs +
+  geom_tippoint(aes(colour=`Bin Completeness`)) + 
+  scale_colour_gradient(low='blue', high='red') +
+  geom_tiplab(size=1, hjust=-.1) +
+  xlim(0,15)
+```
+
+#Figure 9.
+
+```{r}
+ggtree(tree_Archaea, layout="circular")  %<+%
+  NEON_MAGs + 
+  geom_point2(mapping=aes(color=`Bin Completeness`, size=`Total Number of Bases`))
+```
+
+
+#Figure 10.
+```{r}
+ggplot(NEON_MAGs, aes(x = `Gene Count`, y = `Bin Contamination`)) +
+  geom_point() +
+  labs(x = "Gene Count", y = "Bin Contamination", title = "Gene Count Vs. Bin Contamination")
+
+
+```
+
+#Figure 11.
+```{r}
+ggtree(tree_arc, layout="circular")  %<+%
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_point2(mapping=aes(color=`Ecosystem Subtype`, size=`Total Number of Bases`))
+```
+
+#Figure 12. 
+```{r}
+# For unknown reasons the following does not like blank spaces in the names
+NEON_MAGs_metagenomes_chemistry_noblank <- NEON_MAGs_metagenomes_chemistry %>% 
+  rename("AssemblyType" = "Assembly Type") %>% 
+  rename("BinCompleteness" = "Bin Completeness") %>% 
+  rename("BinContamination" = "Bin Contamination") %>% 
+  rename("TotalNumberofBases" = "Total Number of Bases") %>% 
+  rename("EcosystemSubtype" = "Ecosystem Subtype")
+
+ggtree(tree_arc)  %<+%
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_tippoint(aes(colour=`Ecosystem Subtype`)) + 
+
+# For unknown reasons the following does not like blank spaces in the names
+  geom_facet(panel = "Bin Completeness", data = NEON_MAGs_metagenomes_chemistry_noblank, geom = geom_point, 
+      mapping=aes(x = BinCompleteness)) +
+  geom_facet(panel = "Bin Contamination", data = NEON_MAGs_metagenomes_chemistry_noblank, geom = geom_col, 
+                aes(x = BinContamination), orientation = 'y', width = .6) +
+  theme_tree2(legend.position=c(.1, .7))
+
+```
+
+#Figure 13. 
+```{r}
+ggtree(tree_arc, layout="circular")  %<+%
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_tiplab(size=2, hjust=-.5) +
+  xlim(0,1.5) +
+  geom_point(mapping=aes(color=Class)) 
+
+```
+
+#Figure 14.
+```{r}
+ggtree(tree_arc, layout="circular")  %<+%
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_tiplab(size=2, hjust= 3.78) +
+  xlim(0,2) +
+  geom_point(mapping=aes(color=Class, shape = `Assembly Type`)) 
+
+```
+
+#Figure 15.
+```{r}
+ggtree(tree_arc)  %<+%
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_tiplab(size=2, hjust=-.1) +
+  xlim(0,20) +
+  geom_point(mapping=aes(color=`Ecosystem Subtype`)) 
+
+```
+
+#Figure 16. 
+```{r}
+ggtree(tree_arc, layout="circular")  %<+%
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_point2(mapping=aes(color=`Ecosystem Subtype`, size=`Total Number of Bases`))
+
+```
+
+#Figure 17.
+```{r}
+ggtree(tree_arc, layout="circular", branch.length="none") %<+% 
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_point2(mapping=aes(color=`Ecosystem Subtype`, size=`Total Number of Bases`)) + 
+  new_scale_fill() + 
+  geom_fruit(
+      data=NEON_MAGs_metagenomes_chemistry_noblank,
+      geom=geom_tile,
+      mapping=aes(y=label, x=1, fill= AssemblyType),
+      offset=0.08,   # The distance between external layers, default is 0.03 times of x range of tree.
+      pwidth=0.1 # width of the external layer, default is 0.2 times of x range of tree.
+      ) 
+
+```
+
+#Figure 18.
+```{r}
+ggtree(tree_arc, layout="circular", branch.length="none") %<+% 
+  NEON_MAGs_metagenomes_chemistry + 
+  geom_point2(mapping=aes(color=`Ecosystem Subtype`, size=`Total Number of Bases`)) + 
+  new_scale_fill() + 
+  geom_fruit(
+      data=NEON_MAGs_metagenomes_chemistry_noblank,
+      geom=geom_tile,
+      mapping=aes(y=label, x=1, fill= AssemblyType),
+      offset=0.08,   # The distance between external layers, default is 0.03 times of x range of tree.
+      pwidth=0.25 # width of the external layer, default is 0.2 times of x range of tree.
+      ) + 
+  new_scale_fill() +
+  geom_fruit(
+          data=NEON_MAGs_metagenomes_chemistry_noblank,
+          geom=geom_col,
+          mapping=aes(y=label, x=TotalNumberofBases),  
+          pwidth=0.4,
+          axis.params=list(
+                          axis="x", # add axis text of the layer.
+                          text.angle=-45, # the text size of axis.
+                          hjust=0  # adjust the horizontal position of text of axis.
+                      ),
+          grid.params=list() # add the grid line of the external bar plot.
+      ) + 
+      theme(#legend.position=c(0.96, 0.5), # the position of legend.
+          legend.background=element_rect(fill=NA), # the background of legend.
+          legend.title=element_text(size=7), # the title size of legend.
+          legend.text=element_text(size=6), # the text size of legend.
+          legend.spacing.y = unit(0.02, "cm")  # the distance of legends (y orientation).
+      ) 
+
+```
+#Figure 19.
+```{r}
+NEON_metagenomes <- read_tsv("data/NEON/exported_img_data_Gs0161344_NEON.tsv") %>% 
+  select(-c(`Domain`, `Sequencing Status`, `Sequencing Center`)) %>% 
+  rename(`Genome Name` = `Genome Name / Sample Name`) %>% 
+  filter(str_detect(`Genome Name`, 're-annotation', negate = T)) %>% 
+  filter(str_detect(`Genome Name`, 'WREF plot', negate = T))
+tree_bac_preorder <- Preorder(tree_bac)
+tree_Archaea <- Subtree(tree_bac_preorder, 1712)
+ggtree(tree_Archaea) +
+  geom_tiplab(size=2) +
+  xlim(0,20)
+
+```
+#Figure 20. 
+```{r}
+NEON_MAGs %>%
+  ggplot(aes(y=Phylum))+
+  geom_bar()+
+  labs(title = "Phylum Counts at Santa Rita Experimental Range")
+
+
+```
+
+#Figure 21.
+```{r}
+NEON_MAGs %>%   
+ggplot(aes(x = `Total Number of Bases`, y = `Phylum`)) +
+  geom_point()+
+  labs(title = "Phylum Size at Santa Rita Experimental Range")
+
+```
+
+#Figure 22.
+```{r}
+NEON_MAGs_metagenomes_chemistry %>% 
+  ggplot(aes(x=`Site ID.x`, y = soilTemp)) +
+    geom_boxplot()
+
+
+```
+
+#Figure 23. 
+```{r}
+NEON_MAGs_metagenomes_chemistry %>% 
+  ggplot(aes(x=`Ecosystem Subtype`, y = soilTemp, color = Order, size = 0.5)) +
+    geom_point() +
+   theme(axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+
+```
+
+
+
+# Discussion
+
+Figure 1 illustrates the relationship between bin quality and completeness for microbial genomes obtained from soil samples at the Santa Rita Experimental Range (SRER). Our analysis reveals a positive correlation between bin quality and completeness, indicating that high-quality bins tend to exhibit greater completeness in terms of genomic content.
+
+Figure 2 explores the relationship between the total number of bases in microbial genomes and their completeness. We observe a notable variability in bin completeness across genomes of different sizes. While larger genomes may contain more genetic information, our analysis suggests that genome completeness is not solely determined by genome size. Other factors such as bin contamination or quality may also influence genome completeness, highlighting the complexity of metagenomic data interpretation.
+
+Figure 3 presents the phylogenetic distribution of microbial genomes recovered from SRER soil samples. The circular phylogenetic tree reveals the taxonomic diversity of Archaeal taxa present in the soil microbiome. By overlaying metadata such as bin completeness and total number of bases, we gain insights in the phylogenetic distribution patterns of high-quality microbial genomes within the Archaeal lineage. This phylogenetic perspective enhances our understanding of microbial community structure and evolutionary relationships in the SRER ecosystem.
+
+Figures 4 through 7 delve deeper into the phylogenetic analysis of Archaeal lineages identified in SRER soil samples. Through combination of tree visualization techniques, we elucidate the evolutionary relationships among Archaeal taxa and highlight key clades of interest. These clades represent genetically distinct groups within the Archaeal domain and may hold implications for understanding the ecological roles and adaptive strategies of Archaea in desert ecosystems.
+
+Figure 8 presents a phylogenetic tree depiciting the evolutionary relationships among Archaeal taxa identified in SRER soil samples. By overlaying metadata on bin completeness, we gain insights into the distribution of high-quality microbial genomes within the Archaeal lineage. The color gradient indicate varying levels of bin completeness, with warmer colors representing more complete genomes. This figure highlights the taxonomic diversity and genomic characteristics of Archaeal taxa in the SRER soil microbiome. It reveals clusters of closesly related genomes with similar completness levels, suggesting conserved genomic features within specific phylogenetic groups. Moreover, the phlogenetic distribution of genomes provides clues to the ecological roles and evolutionary relationships of Archaeal taxa in desert ecosystems. 
+
+Figure 9 complements the phylogenetic analysis by integrating genomic features, environmental chemistry data, and bin completeness information. The circular phylogenetic layout allows for a comprehensive visualization of microbial genomes alongside metadata on bin completeness, total number of bases, and environmental chemistry variables. 
+The color and size of the points represents bin completeness and total number of bases, respectively, providing a visual representation of genomic characteristics within the Archaeal lineage. Additionally, the incorporation of environmental chemistry data enables exploration of potential relationships between microbial genomic features and soil chemistry parameters. 
+
+Figure 10 illustrates the relationship between gene count and bin contamination in NEON MAGs, revealing a positive correlation where bins with higher gene counts tend to exhibit increased contamination.
+
+Figure 11 and 16  present circular phylogenetic tress of Archaeal taxa from NEON metagenomes, overlaid with metadata on ecosystem subtype and total number of bases. These figures highlight the taxonomic diversity within the Archaea and suggest potential associations between specific lineages and ecosystem subtypes, which could indicate ecological adaptations.
+
+Figure 12 enhances the phylogenetic analysis by incorporating panels for bin completeness and bin contamination alongside the tree. This figure demonstrates how these quality metrics vary among different phylogenetic groups, with points colored by ecosystem subtype.
+
+Figure 13 and 14 display circular phylogenetic trees with tip labels and points colored by class and shaped by assembly type. These visualizations emphasize the diversity within Archaeal classes and highlight differences in genome assembly types across the phylogenetic tree.
+
+Figure 16 resents a phylogenetic tree with tips labeled and points colored by ecosystem subtype, highlighting the ecological diversity of the sampled Archaea. The linear layout and color coding facilitate the identification of specific lineages associated with particular ecosystems, offering insights into the ecological niches and adaptations of these microorganisms within their respective environments.
+
+Figure 17 and 18 further integrate phylogenetic data with genomic and environmental metadata. Both figures use a circular tree layout and include layers for bin completeness, total number of bases, and assembly type. These figures illustrate complex relationships between phylogenetic positions, genomic features, and ecological contexts, suggesting potential interactions between genome characteristics and environmental factors.
+
+Figure 19 shows a phylogenetic tree of Archaea with tip labels, allowing for a straightforward visualization of the evolutionary relationships among the taxa. The extended layout facilitates the examination of specific lineages and their evolutionary contexts within the broader Archaeal domain, serving as a foundational reference for interpreting the ecological and genomic data presented in other figures.
+
+Figure 20 depicts the counts of different phyla present in the Santa Rita Experimental Range (SRER) soil samples, highlighting the distribution and relative abundance of various microbial groups. This bar chart provides a clear overview of the microbial community composition at the phylum level, serving as a baseline for understanding the diversity and ecological significance of these groups in the SRER ecosystem.
+
+Figure 21 illustrates the relationship between the total number of bases and phylum in the SRER soil samples. This scatter plot highlights the variability in genome sizes across different phyla, suggesting differences in genomic content and complexity that may correlate with their ecological roles and adaptive strategies in the desert environment.
+
+Figure 22 presents a boxplot of soil temperature across different site IDs, providing insights into the environmental conditions of the sampling locations. By visualizing soil temperature variation, this figure helps contextualize the microbial and genomic data, offering a perspective on how temperature may influence microbial community composition and genome characteristics in the SRER soil samples.
+
+#Conclusion
+
+In this study, we investigated the microbial composition of soil samples collected from the Santa Rita Experimental Range (SRER) in the Desert Southwest, focusing on Archaea. Our findings provide insights into the diversity and distribution of Archaeal taxa within this unique ecosystem. The analysis of soil samples revealed a diverse array of Archaeal taxa present within the SRER. Our results indicate that Archaea are abundant and diverse in this arid environment, despite the harsh conditions typically associated with Archaeal habitats. This finding aligns with previous studies highlighting the resilience and adaptability of Archaea to extreme environmental conditions. Our analysis also examined the influence of environmental factors such as pH, moisture, and seasonal variation on Archaeal community composition. We observed distinct patterns in Archaeal taxa distribution across different soil sampling bouts, suggesting a potential correlation between environmental variables and Archaeal community dynamics. Further investigation into these relationships could provide valuable insights into the ecological roles of Archaea in desert ecosystems. While this study provides valuable insights into Archaeal diversity and distribution within the SRER, further research is warranted to explore the functional significance of these microbial communities. Furthermore, long-term monitoring efforts are essential for assessing the resilience of Archaeal communities to environment changes and distrubances. In conclusion, our study sheds light on the microbial ecology of desert range lands and highlights the importance of Archaea in shaping ecosystem dynamics. By advancing our knowledge of Archaeal diversity and function, we can better inform conservation and management strategies aimed at preserving the ecological integrity of arid landscapes like the Santa Rita Experimental Range.
